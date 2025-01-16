@@ -42,6 +42,11 @@ func (lr *LazyRegexp) re() *regexp.Regexp {
 	return lr.compiled
 }
 
+// MatchString see regexp.MatchString
+func (lr *LazyRegexp) MatchString(s string) bool {
+	return lr.re().MatchString(s)
+}
+
 // FindStringSubmatch see regexp.FindStringSubmatch
 func (lr *LazyRegexp) FindStringSubmatch(s string) []string {
 	return lr.re().FindStringSubmatch(s)
