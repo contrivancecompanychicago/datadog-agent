@@ -244,16 +244,16 @@ func TestRawPacketFilter(t *testing.T) {
 
 	for _, filter := range filters {
 		t.Run(filter.BPFFilter, func(t *testing.T) {
-			runTest(t, []rawpacket.Filter{filter}, rawpacket.DefaultProgOpts)
+			runTest(t, []rawpacket.Filter{filter}, rawpacket.DefaultProgOpts())
 		})
 	}
 
 	t.Run("all-without-limit", func(t *testing.T) {
-		runTest(t, filters, rawpacket.DefaultProgOpts)
+		runTest(t, filters, rawpacket.DefaultProgOpts())
 	})
 
 	t.Run("all-with-limit", func(t *testing.T) {
-		opts := rawpacket.DefaultProgOpts
+		opts := rawpacket.DefaultProgOpts()
 		opts.MaxProgSize = 4000
 		opts.NopInstLen = 3500
 		runTest(t, filters, opts)
