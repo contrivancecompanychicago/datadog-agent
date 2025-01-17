@@ -298,7 +298,7 @@ func (d *daemonImpl) install(ctx context.Context, url string, args []string) (er
 	defer d.refreshState(ctx)
 
 	log.Infof("Daemon: Installing package from %s", url)
-	err = d.installer.Install(ctx, url, args)
+	err = d.installer.Install(ctx, url, args, false)
 	if err != nil {
 		return fmt.Errorf("could not install: %w", err)
 	}
