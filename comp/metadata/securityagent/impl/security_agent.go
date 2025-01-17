@@ -13,8 +13,6 @@ import (
 	"net/http"
 	"time"
 
-	"gopkg.in/yaml.v2"
-
 	api "github.com/DataDog/datadog-agent/comp/api/api/def"
 	"github.com/DataDog/datadog-agent/comp/api/authtoken"
 	"github.com/DataDog/datadog-agent/comp/core/config"
@@ -24,7 +22,7 @@ import (
 	"github.com/DataDog/datadog-agent/comp/metadata/runner/runnerimpl"
 	securityagent "github.com/DataDog/datadog-agent/comp/metadata/securityagent/def"
 	configFetcher "github.com/DataDog/datadog-agent/pkg/config/fetcher"
-	"github.com/DataDog/datadog-agent/pkg/config/model"
+	configutils "github.com/DataDog/datadog-agent/pkg/config/utils"
 	"github.com/DataDog/datadog-agent/pkg/serializer"
 	"github.com/DataDog/datadog-agent/pkg/serializer/marshaler"
 	"github.com/DataDog/datadog-agent/pkg/util/hostname"
@@ -132,34 +130,7 @@ func (sa *secagent) getConfigLayers() map[string]interface{} {
 		return metadata
 	}
 
-	layersName := map[model.Source]string{
-		model.SourceFile:               "file_configuration",
-		model.SourceEnvVar:             "environment_variable_configuration",
-		model.SourceAgentRuntime:       "agent_runtime_configuration",
-		model.SourceLocalConfigProcess: "source_local_configuration",
-		model.SourceRC:                 "remote_configuration",
-		model.SourceFleetPolicies:      "fleet_policies_configuration",
-		model.SourceCLI:                "cli_configuration",
-		model.SourceProvided:           "provided_configuration",
-	}
-	for source, conf := range configBySources {
-		if layer, ok := layersName[model.Source(source)]; ok {
-			if yamlStr, err := yaml.Marshal(conf); err == nil {
-				metadata[layer] = string(yamlStr)
-			} else {
-				sa.log.Debugf("error serializing securityagent '%s' config layer: %s", source, err)
-			}
-		} else {
-			sa.log.Debugf("error unknown config layer from security-agent '%s'", source)
-		}
-	}
-
-	if str, err := fetchSecurityAgentConfig(sa.conf); err == nil {
-		metadata["full_configuration"] = str
-	} else {
-		sa.log.Debugf("error fetching security-agent config: %s", err)
-	}
-
+	configutils.InjectConfigLayersForMetadata(sa.conf, configBySources, metadata)
 	return metadata
 }
 
