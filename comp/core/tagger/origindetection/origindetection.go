@@ -31,6 +31,8 @@ const (
 
 	// LocalDataContainerIDPrefix is the prefix used for the Container ID sent in the Local Data list.
 	LocalDataContainerIDPrefix = "ci-"
+	// LocalDataLegacyAPMContainerIDPrefix is the prefix used by APM to send the Container ID.
+	LocalDataLegacyAPMContainerIDPrefix = "cid-"
 	// LocalDataInodePrefix is the prefix used for the Inode sent in the Local Data list.
 	LocalDataInodePrefix = "in-"
 
@@ -97,8 +99,14 @@ func ParseLocalData(rawLocalData string) (LocalData, error) {
 		} else if strings.HasPrefix(rawLocalData, LocalDataInodePrefix) {
 			localData.Inode, parsingError = strconv.ParseUint(rawLocalData[len(LocalDataInodePrefix):], 10, 64)
 		} else {
-			// Container ID with old format: <container-id>
-			localData.ContainerID = rawLocalData
+			// This is for backward compatibility.
+			if strings.HasPrefix(rawLocalData, LocalDataLegacyAPMContainerIDPrefix) {
+				// Container ID with old format: cid-<container-id>. Used by APM.
+				localData.ContainerID = rawLocalData[len(LocalDataLegacyAPMContainerIDPrefix):]
+			} else {
+				// Container ID with old format: <container-id>. Used by DogStatsD.
+				localData.ContainerID = rawLocalData
+			}
 		}
 	}
 
