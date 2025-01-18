@@ -26,7 +26,7 @@ func TestSamplerAccessRace(_ *testing.T) {
 			for i := 0; i < 10000; i++ {
 				s.countWeightedSig(time.Now().Add(time.Duration(5*(j+i))*time.Second), Signature(i%3), 5)
 				s.report()
-				s.countSample()
+				s.countSample(true)
 				s.getSignatureSampleRate(Signature(i % 3))
 				s.getAllSignatureSampleRates()
 			}

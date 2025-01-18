@@ -52,7 +52,7 @@ type Sampler struct {
 	// extraRate is an extra raw sampling rate to apply on top of the sampler rate
 	extraRate float64
 
-	totalSeen float32
+	totalSeen *atomic.Int64
 	totalKept *atomic.Int64
 
 	tags    []string
@@ -70,6 +70,7 @@ func newSampler(extraRate float64, targetTPS float64, tags []string, statsd stat
 		targetTPS: atomic.NewFloat64(targetTPS),
 		tags:      tags,
 
+		totalSeen: atomic.NewInt64(0),
 		totalKept: atomic.NewInt64(0),
 
 		exit:    make(chan struct{}),
@@ -140,7 +141,6 @@ func (s *Sampler) countWeightedSig(now time.Time, signature Signature, n float32
 	buckets[bucketID%numBuckets] += n
 	s.seen[signature] = buckets
 
-	s.totalSeen += n
 	s.muSeen.Unlock()
 	return updateRates
 }
@@ -248,9 +248,11 @@ func zeroAndGetMax(buckets [numBuckets]float32, previousBucket, newBucket int64)
 	return maxBucket, buckets
 }
 
-// countSample counts a trace sampled by the sampler.
-func (s *Sampler) countSample() {
-	s.totalKept.Inc()
+func (s *Sampler) countSample(sampled bool) {
+	if sampled {
+		s.totalKept.Inc()
+	}
+	s.totalSeen.Inc()
 }
 
 // getSignatureSampleRate returns the sampling rate to apply to a signature
@@ -311,10 +313,7 @@ func (s *Sampler) size() int64 {
 }
 
 func (s *Sampler) report() {
-	s.muSeen.Lock()
-	seen := int64(s.totalSeen)
-	s.totalSeen = 0
-	s.muSeen.Unlock()
+	seen := s.totalSeen.Swap(0)
 	kept := s.totalKept.Swap(0)
 	_ = s.statsd.Count("datadog.trace_agent.sampler.kept", kept, s.tags, 1)
 	_ = s.statsd.Count("datadog.trace_agent.sampler.seen", seen, s.tags, 1)
