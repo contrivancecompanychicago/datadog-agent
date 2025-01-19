@@ -1371,6 +1371,29 @@ type GPU struct {
 	// is not guaranteed to be stable across reboots, nor is necessarily the same inside
 	// of containers.
 	Index int
+
+	// MigEnabled is true if the GPU supports MIG (Multi-Instance GPU) and it is enabled.
+	MigEnabled bool
+	// MigDevices is a list of MIG devices that are part of the GPU.
+	MigDevices []*MigDevice
+}
+
+// MigDevice contains information about a MIG device, including the GPU instance ID, device info, attributes, and profile.
+type MigDevice struct {
+	// GPUInstanceID is the ID of the GPU instance. This is a unique identifier inside the parent GPU device.
+	GPUInstanceID int
+	UUID          string
+	Name          string
+	// GPUInstanceSliceCount and MemorySizeInGb are retrieved from the profile
+	// mig 1g.10gb profile will have GPUInstanceSliceCount = 1 and MemorySizeMB = 10000
+	GPUInstanceSliceCount uint32
+	MemorySizeMB          uint64
+	// ResourceName is the resource of the profile used, e.g. "1g.10gb", "2g.20gb", etc.
+	ResourceName string
+}
+
+func (m *MigDevice) String() string {
+	return fmt.Sprintf("GPU Instance ID: %d, UUID: %s, Resource: %s", m.GPUInstanceID, m.UUID, m.ResourceName)
 }
 
 var _ Entity = &GPU{}
@@ -1415,6 +1438,13 @@ func (g GPU) String(verbose bool) string {
 	_, _ = fmt.Fprintln(&sb, "Device:", g.Device)
 	_, _ = fmt.Fprintln(&sb, "Active PIDs:", g.ActivePIDs)
 	_, _ = fmt.Fprintln(&sb, "Index:", g.Index)
+	if g.MigEnabled {
+		_, _ = fmt.Fprintln(&sb, "----------- MIG Device -----------")
+		_, _ = fmt.Fprintln(&sb, "MIG Enabled: true")
+		for _, migDevice := range g.MigDevices {
+			_, _ = fmt.Fprintln(&sb, migDevice.String())
+		}
+	}
 
 	return sb.String()
 }
