@@ -29,9 +29,11 @@ type PipelineComponent interface {
 
 // SharedSender distribute payloads on multiple
 // underlying senders.
+// Do not re-use a SharedSender, reinstantiate one instead.
 type SharedSender struct {
 	senders []*Sender
-	started *atomic.Bool
+	started *atomic.Bool // can't be started twice
+	stopped *atomic.Bool // but also can't be stopped twice
 
 	queues []chan *message.Payload
 
@@ -69,6 +71,7 @@ func NewSharedSender(config pkgconfigmodel.Reader, auditor auditor.Auditor, dest
 	return &SharedSender{
 		senders:         senders,
 		started:         atomic.NewBool(false),
+		stopped:         atomic.NewBool(false),
 		pipelineMonitor: pipelineMonitor,
 		utilization:     pipelineMonitor.MakeUtilizationMonitor("shared_sender"),
 		queues:          queues,
@@ -90,7 +93,7 @@ func (s *SharedSender) PipelineMonitor() metrics.PipelineMonitor {
 // Start starts all shared sender.
 func (s *SharedSender) Start() {
 	if s.started.Load() {
-		return
+		return // do not start a shared sender twice
 	}
 	for _, sender := range s.senders {
 		sender.Start()
@@ -101,8 +104,12 @@ func (s *SharedSender) Start() {
 // Stop stops all shared senders.
 func (s *SharedSender) Stop() {
 	if !s.started.Load() {
-		return
+		return // do not stop a shared sender which has never been started
 	}
+	if s.stopped.Load() {
+		return // do not stop a shared sender twice
+	}
+
 	log.Info("shared sender stopping")
 	for _, s := range s.senders {
 		s.Stop()
@@ -111,4 +118,5 @@ func (s *SharedSender) Stop() {
 		close(s.queues[i])
 	}
 	s.started.Store(false)
+	s.stopped.Store(true)
 }
