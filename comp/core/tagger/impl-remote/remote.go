@@ -269,15 +269,10 @@ func (t *remoteTagger) GenerateContainerIDFromOriginInfo(originInfo origindetect
 		}
 	}()
 
-	// Generate cache key
-	initPrefix := ""
-	if originInfo.ExternalData.Init {
-		initPrefix = "i/"
-	}
 	key := cache.BuildAgentKey(
 		"remoteTagger",
-		"cid",
-		initPrefix+originInfo.ExternalData.PodUID+"/"+originInfo.ExternalData.ContainerName,
+		"originInfo",
+		origindetection.GenerateOriginInfoHash(originInfo),
 	)
 
 	cachedContainerID, err := cache.GetWithExpiration(key, func() (containerID string, err error) {

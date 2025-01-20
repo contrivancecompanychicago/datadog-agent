@@ -22,7 +22,15 @@ import (
 	taggertypes "github.com/DataDog/datadog-agent/pkg/tagger/types"
 	"github.com/DataDog/datadog-agent/pkg/tagset"
 	"github.com/DataDog/datadog-agent/pkg/util/containers/metrics"
+	"github.com/DataDog/datadog-agent/pkg/util/log"
 	"github.com/DataDog/datadog-agent/pkg/util/option"
+)
+
+const (
+	// pidCacheTTL is the time to live for the PID cache
+	pidCacheTTL = 1 * time.Minute
+	// inodeCacheTTL is the time to live for the inode cache
+	inodeCacheTTL = 1 * time.Minute
 )
 
 // Tagger is the entry class for entity tagging. It hold the tagger collector,
@@ -104,9 +112,62 @@ func (t *localTagger) Tag(entityID types.EntityID, cardinality types.TagCardinal
 }
 
 // GenerateContainerIDFromOriginInfo generates a container ID from Origin Info.
-func (t *localTagger) GenerateContainerIDFromOriginInfo(originInfo origindetection.OriginInfo) (string, error) {
+// The resolutions will be done in the following order:
+// * OriginInfo.LocalData.ContainerID: If the container ID is already known, return it.
+// * OriginInfo.LocalData.ProcessID: If the process ID is known, do a PID resolution.
+// * OriginInfo.LocalData.Inode: If the inode is known, do an inode resolution.
+// * OriginInfo.ExternalData: If the ExternalData are known, do an ExternalData resolution.
+func (t *localTagger) GenerateContainerIDFromOriginInfo(originInfo origindetection.OriginInfo) (containerID string, err error) {
+	// If the container ID is already known, return it.
+	if originInfo.LocalData.ContainerID != "" {
+		log.Debugf("Found OriginInfo.LocalData.ContainerID: %s", originInfo.LocalData.ContainerID)
+		containerID = originInfo.LocalData.ContainerID
+		return
+	}
+
+	// Get the MetaCollector from WorkloadMeta.
 	metaCollector := metrics.GetProvider(option.New(t.workloadStore)).GetMetaCollector()
-	return metaCollector.ContainerIDForPodUIDAndContName(originInfo.ExternalData.PodUID, originInfo.ExternalData.ContainerName, originInfo.ExternalData.Init, time.Second)
+
+	// If the process ID is known, do a PID resolution.
+	if originInfo.LocalData.ProcessID != 0 {
+		log.Debugf("Resolving container ID from PID: %d", originInfo.LocalData.ProcessID)
+		containerID, err = metaCollector.GetContainerIDForPID(int(originInfo.LocalData.ProcessID), pidCacheTTL)
+		if err != nil {
+			log.Errorf("Error resolving container ID from PID: %v", err)
+		} else if containerID == "" {
+			log.Errorf("No container ID found for PID: %d", originInfo.LocalData.ProcessID)
+		} else {
+			return
+		}
+	}
+
+	// If the inode is known, do an inode resolution.
+	if originInfo.LocalData.Inode != 0 {
+		log.Debugf("Resolving container ID from inode: %d", originInfo.LocalData.Inode)
+		containerID, err = metaCollector.GetContainerIDForInode(originInfo.LocalData.Inode, inodeCacheTTL)
+		if err != nil {
+			log.Errorf("Error resolving container ID from inode: %v", err)
+		} else if containerID == "" {
+			log.Errorf("No container ID found for inode: %d", originInfo.LocalData.Inode)
+		} else {
+			return
+		}
+	}
+
+	// If the ExternalData are known, do an ExternalData resolution.
+	if originInfo.ExternalData.PodUID != "" && originInfo.ExternalData.ContainerName != "" {
+		log.Debugf("Resolving container ID from ExternalData: %+v", originInfo.ExternalData)
+		containerID, err = metaCollector.ContainerIDForPodUIDAndContName(originInfo.ExternalData.PodUID, originInfo.ExternalData.ContainerName, originInfo.ExternalData.Init, time.Second)
+		if err != nil {
+			log.Errorf("Error resolving container ID from ExternalData: %v", err)
+		} else if containerID == "" {
+			log.Errorf("No container ID found for ExternalData: %+v", originInfo.ExternalData)
+		} else {
+			return
+		}
+	}
+
+	return "", fmt.Errorf("unable to resolve container ID from OriginInfo: %+v", originInfo)
 }
 
 // LegacyTag has the same behaviour as the Tag method, but it receives the entity id as a string and parses it.

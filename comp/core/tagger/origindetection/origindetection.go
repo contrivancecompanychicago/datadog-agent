@@ -10,6 +10,7 @@
 package origindetection
 
 import (
+	"fmt"
 	"strconv"
 	"strings"
 )
@@ -66,6 +67,11 @@ type ExternalData struct {
 	Init          bool   // Init is true if the container is an init container.
 	ContainerName string // ContainerName is the name of the container as seen by the Admission Controller.
 	PodUID        string // PodUID is the UID of the pod as seen by the Admission Controller.
+}
+
+// GenerateOriginInfoHash generates a hash from the OriginInfo.
+func GenerateOriginInfoHash(originInfo OriginInfo) string {
+	return fmt.Sprintf("%v%v", originInfo.LocalData, originInfo.ExternalData)
 }
 
 // GenerateContainerIDFromExternalData generates a container ID from the external data.
