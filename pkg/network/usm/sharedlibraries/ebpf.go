@@ -213,7 +213,6 @@ func (e *EbpfProgram) setupManagerAndPerfHandlers() {
 			KProbeMaxActive:         maxActive,
 		}
 		mgr.Probes = append(mgr.Probes, probe)
-		ddebpf.AddProgramNameMapping(probe.ID(), probe.EBPFFuncName, "usm-watcher")
 	}
 
 	e.Manager = ddebpf.NewManager(mgr, "shared-libraries", &ebpftelemetry.ErrorsTelemetryModifier{})
@@ -313,6 +312,7 @@ func (e *EbpfProgram) InitWithLibsets(libsets ...Libset) error {
 		return fmt.Errorf("cannot start manager: %w", err)
 	}
 
+	ddebpf.AddNameMappings(e.Manager.Manager, "usm_watcher")
 	e.isInitialized = true
 	return nil
 }
