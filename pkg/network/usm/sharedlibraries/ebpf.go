@@ -208,12 +208,12 @@ func (e *EbpfProgram) setupManagerAndPerfHandlers() {
 
 	e.initializeProbes()
 	for _, identifier := range e.enabledProbes {
-		mgr.Probes = append(mgr.Probes,
-			&manager.Probe{
-				ProbeIdentificationPair: identifier,
-				KProbeMaxActive:         maxActive,
-			},
-		)
+		probe := &manager.Probe{
+			ProbeIdentificationPair: identifier,
+			KProbeMaxActive:         maxActive,
+		}
+		mgr.Probes = append(mgr.Probes, probe)
+		ddebpf.AddProgramNameMapping(probe.ID(), probe.EBPFFuncName, "usm-watcher")
 	}
 
 	e.Manager = ddebpf.NewManager(mgr, "shared-libraries", &ebpftelemetry.ErrorsTelemetryModifier{})
