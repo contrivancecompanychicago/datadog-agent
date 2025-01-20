@@ -8,5 +8,5 @@
 ---
 features:
   - |
-    Add new `card:` common field to DogStatsD Datagram specification to allow
-    customer to specify the cardinality of the metric. This field is optional.
+    Added `card:` common field to DogStatsD Datagram specification so 
+    you can specify the cardinality of the metric. This field is optional.
