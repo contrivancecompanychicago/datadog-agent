@@ -224,7 +224,8 @@ func NewActivityDumpFromMessage(msg *api.ActivityDumpMessage) (*ActivityDump, er
 		DifferentiateArgs: metadata.GetDifferentiateArgs(),
 		ContainerID:       containerutils.ContainerID(metadata.GetContainerID()),
 		CGroupContext: model.CGroupContext{
-			CGroupID: containerutils.CGroupID(metadata.GetCGroupID()),
+			CGroupID:      containerutils.CGroupID(metadata.GetCGroupID()),
+			CGroupManager: metadata.GetCGroupManager(),
 		},
 		Start: startTime,
 		End:   startTime.Add(timeout),
