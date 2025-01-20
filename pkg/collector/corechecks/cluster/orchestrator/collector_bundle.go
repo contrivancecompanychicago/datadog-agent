@@ -103,6 +103,8 @@ func (cb *CollectorBundle) prepareCollectors() {
 		}
 	}
 
+	defer cb.addTerminatedCollectorIfStable()
+
 	if ok := cb.importCollectorsFromCheckConfig(); ok {
 		return
 	}
@@ -410,6 +412,32 @@ func (cb *CollectorBundle) terminatedResourceHandler(collector collectors.K8sCol
 			BufferManifestProcessResult(result.Result.ManifestMessages, cb.manifestBuffer)
 		} else {
 			orchSender.OrchestratorManifest(result.Result.ManifestMessages, cb.check.clusterID)
+		}
+	}
+}
+
+// addTerminatedCollector adds terminated pod collector if unassigned pod collector is added
+func (cb *CollectorBundle) addTerminatedCollectorIfStable() {
+	hasUnassignedPodCollector := false
+	hasTerminatedPodCollector := false
+	for _, collector := range cb.collectors {
+		if collector.Metadata().Name == "pods" {
+			hasUnassignedPodCollector = true
+		}
+		if collector.Metadata().Name == "terminated-pods" {
+			hasTerminatedPodCollector = true
+		}
+	}
+
+	if hasUnassignedPodCollector && !hasTerminatedPodCollector {
+		terminatedPodCollector, err := cb.collectorDiscovery.VerifyForInventory("terminated-pods", "", cb.inventory)
+		if err != nil {
+			log.Warnf("Unabled to add terminated pod collector: %s", err)
+			return
+		}
+		if terminatedPodCollector.Metadata().IsStable {
+			cb.collectors = append(cb.collectors, terminatedPodCollector)
+			return
 		}
 	}
 }
